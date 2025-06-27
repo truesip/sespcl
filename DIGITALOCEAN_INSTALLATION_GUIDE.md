@@ -288,7 +288,7 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
 1. **Clone Repository**
    ```bash
    cd /home/voiceapi
-   git clone https://github.com/your-username/voice-api-server.git
+   git clone https://github.com/truesip/sespcl
    cd voice-api-server
    chown -R voiceapi:voiceapi /home/voiceapi
    ```
@@ -315,15 +315,15 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
 
 2. **Create PM2 Configuration**
    ```bash
-   sudo -u voiceapi nano /home/voiceapi/voice-api-server/ecosystem.config.js
+   sudo -u voiceapi nano /home/voiceapi/sespcl/ecosystem.config.js
    ```
    
    ```javascript
    module.exports = {
      apps: [{
-       name: 'voice-api-server',
+       name: 'sespcl',
        script: 'server.js',
-       cwd: '/home/voiceapi/voice-api-server',
+       cwd: '/home/voiceapi/sespcl',
        user: 'voiceapi',
        instances: 'max', // Use all CPU cores
        exec_mode: 'cluster',
@@ -348,7 +348,7 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
 
 4. **Start Application**
    ```bash
-   cd /home/voiceapi/voice-api-server
+   cd /home/voiceapi/sespcl
    sudo -u voiceapi pm2 start ecosystem.config.js
    sudo -u voiceapi pm2 save
    pm2 startup systemd -u voiceapi --hp /home/voiceapi
