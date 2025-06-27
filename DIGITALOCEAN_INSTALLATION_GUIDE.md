@@ -267,7 +267,7 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
 
 3. **Install Node.js 18**
    ```bash
-   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
    apt-get install -y nodejs
    node --version  # Should show v18.x.x
    npm --version
