@@ -269,7 +269,7 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
    ```bash
    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
    apt-get install -y nodejs
-   node --version  # Should show v18.x.x
+   node --version  # Should show v20.x.x
    npm --version
    ```
 
@@ -295,7 +295,7 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
 
 2. **Install Dependencies**
    ```bash
-   sudo -u voiceapi npm ci --only=production
+   sudo -u voiceapi npm install --only=production
    ```
 
 3. **Create Environment File**
@@ -371,27 +371,6 @@ ALLOWED_ORIGINS=https://yourdomain.com,https://api.yourdomain.com
        add_header X-Content-Type-Options nosniff;
        add_header X-XSS-Protection "1; mode=block";
        
-       # Rate limiting
-       limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
-       
-       location / {
-           limit_req zone=api burst=20 nodelay;
-           
-           proxy_pass http://127.0.0.1:3000;
-           proxy_http_version 1.1;
-           proxy_set_header Upgrade $http_upgrade;
-           proxy_set_header Connection 'upgrade';
-           proxy_set_header Host $host;
-           proxy_set_header X-Real-IP $remote_addr;
-           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-           proxy_set_header X-Forwarded-Proto $scheme;
-           proxy_cache_bypass $http_upgrade;
-           
-           # Timeouts
-           proxy_connect_timeout 60s;
-           proxy_send_timeout 60s;
-           proxy_read_timeout 60s;
-       }
        
        # Health check endpoint (no rate limiting)
        location /health {
