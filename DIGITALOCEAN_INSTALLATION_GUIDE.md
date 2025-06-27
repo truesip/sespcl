@@ -40,19 +40,19 @@ This guide covers deployment on both **DigitalOcean Droplets** and **App Platfor
 
 1. **Fork or Clone the Repository**
    ```bash
-   git clone https://github.com/your-username/sespcl.git
+   git clone https://github.com/truesip/sespcl.git
    cd sespcl
    ```
 
 2. **Create GitHub Repository**
    - Go to https://github.com/new
-   - Repository name: `voice-api-server`
+   - Repository name: `sespcl`
    - Make it **Public** (required for free GitHub integration)
    - Don't initialize with README
 
 3. **Push Your Code**
    ```bash
-   git remote add origin https://github.com/your-username/voice-api-server.git
+   git remote add origin https://github.com/truesip/sespcl
    git branch -M main
    git add .
    git commit -m "Initial commit: Multi-provider Voice API Server"
@@ -68,13 +68,13 @@ This guide covers deployment on both **DigitalOcean Droplets** and **App Platfor
 2. **Connect GitHub Repository**
    - Choose **GitHub**
    - Authorize DigitalOcean to access your repositories
-   - Select your `voice-api-server` repository
+   - Select your `sespcl` repository
    - Branch: `main`
    - Auto-deploy: ✅ **Enabled**
 
 3. **Configure Build Settings**
    - **Source Directory:** `/` (root)
-   - **Build Command:** `npm ci --only=production`
+   - **Build Command:** `npm install --only=production`
    - **Run Command:** `npm start`
    - **Environment:** `Node.js`
    - **HTTP Port:** `3000`
