@@ -1,4 +1,4 @@
-# TrueSIP Hybrid Voice API Server
+# Session Protocol Hybrid Voice API Server (https://www.sessionprotocol.com)
 
 High-performance Text-to-Speech Voice API Server with **SIP routing** and Infobip integration, optimized for 1M+ requests.
 
@@ -161,4 +161,4 @@ npm run dev
 
 ## 🆘 Support
 
-Check the `SCALING_GUIDE.md` for detailed production deployment instructions.
+Check the `DIGITALOCEAN_GUIDE.md` for detailed production deployment instructions.
