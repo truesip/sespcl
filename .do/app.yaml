@@ -1,0 +1,146 @@
+# DigitalOcean App Platform Configuration for TrueSIP Hybrid API
+# Supports both SIP and Infobip routing
+
+name: truesip-hybrid-api
+services:
+  - name: api
+    source_dir: /
+    github:
+      repo: your-github-username/your-repo-name
+      branch: main
+      deploy_on_push: true
+    
+    # Build configuration
+    build_command: npm ci --only=production
+    
+    # Runtime configuration
+    run_command: npm start
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: professional-xs
+    http_port: 3000
+    
+    # Environment variables for production
+    envs:
+      # Core Application Settings
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: WORKER_PROCESSES
+        value: "2"
+      - key: RATE_LIMIT_MAX
+        value: "5000"
+      - key: HEAVY_RATE_LIMIT_MAX
+        value: "200"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: LOG_LEVEL
+        value: "info"
+      - key: CONTENT_ANALYSIS_REQUIRED
+        value: "false"
+      
+      # Security - Set these as encrypted secrets in DO dashboard
+      - key: MY_API_KEY
+        type: SECRET
+      - key: DEFAULT_CALLER_ID
+        type: SECRET
+      
+      # SIP Configuration - Set these as encrypted secrets
+      - key: USE_SIP
+        value: "true"
+      - key: SIP_PROXY_HOST
+        type: SECRET
+      - key: SIP_PROXY_PORT
+        value: "5060"
+      - key: SIP_USERNAME
+        type: SECRET
+      - key: SIP_PASSWORD
+        type: SECRET
+      - key: SIP_DOMAIN
+        type: SECRET
+      - key: SIP_FROM_NAME
+        value: "TrueSIP API"
+      - key: SIP_LOCAL_PORT
+        value: "5070"
+      - key: SIP_TRANSPORT
+        value: "UDP"
+      
+      # Infobip Backup Configuration (Optional)
+      - key: INFOBIP_BASE_URL
+        type: SECRET
+      - key: INFOBIP_API_KEY
+        type: SECRET
+      
+      # VoIP Provider Configuration (Optional)
+      - key: TWILIO_ACCOUNT_SID
+        type: SECRET
+      - key: TWILIO_AUTH_TOKEN
+        type: SECRET
+      - key: VONAGE_API_KEY
+        type: SECRET
+      - key: VONAGE_API_SECRET
+        type: SECRET
+      - key: AWS_ACCESS_KEY_ID
+        type: SECRET
+      - key: AWS_SECRET_ACCESS_KEY
+        type: SECRET
+      - key: AWS_CONNECT_INSTANCE_ID
+        type: SECRET
+      - key: WAVIX_API_KEY
+        type: SECRET
+      - key: WAVIX_BASE_URL
+        value: "https://api.wavix.com/v1"
+      - key: PLIVO_AUTH_ID
+        type: SECRET
+      - key: PLIVO_AUTH_TOKEN
+        type: SECRET
+      - key: SINCH_APPLICATION_KEY
+        type: SECRET
+      - key: SINCH_APPLICATION_SECRET
+        type: SECRET
+      - key: TELNYX_API_KEY
+        type: SECRET
+      - key: TELNYX_CONNECTION_ID
+        type: SECRET
+      - key: TELNYX_WEBHOOK_URL
+        value: "https://your-app.com/webhook/telnyx"
+      - key: ENABLEX_APP_ID
+        type: SECRET
+      - key: ENABLEX_APP_KEY
+        type: SECRET
+      - key: ENABLEX_WEBHOOK_URL
+        value: "https://your-app.com/webhook/enablex"
+      - key: ENABLEX_ANSWER_URL
+        value: "https://your-app.com/answer/enablex"
+      
+      # Optional Features
+      - key: PERSPECTIVE_API_KEY
+        type: SECRET
+      - key: PERSPECTIVE_THRESHOLD
+        value: "0.8"
+      - key: GOOGLE_SPEECH_API_KEY
+        type: SECRET
+
+    # Health monitoring
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+
+    # Performance alerts
+    alerts:
+      - rule: CPU_UTILIZATION
+        value: 80
+      - rule: MEM_UTILIZATION
+        value: 80
+      - rule: RESTART_COUNT
+        value: 10
+
+    # Network routing
+    routes:
+      - path: /
+        preserve_path_prefix: true
