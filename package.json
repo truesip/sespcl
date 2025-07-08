@@ -1,0 +1,42 @@
+{
+  "name": "sespcl",
+  "version": "1.9.0",
+  "description": "High-performance Voice API Server with Infobip integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "health-check": "curl -f http://localhost:3000/health || exit 1"
+  },
+  "keywords": [
+    "tts",
+    "voice",
+    "api",
+    "infobip",
+    "text-to-speech",
+    "production"
+  ],
+  "author": "Session Protocol",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "drachtio-client": "^0.1.4",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "node-cache": "^5.1.2",
+    "pino": "^8.16.2",
+    "pino-http": "^8.5.1",
+    "pino-pretty": "^10.2.3",
+    "sip": "^0.0.6",
+    "uuid": "^11.1.0"
+  }
+}
