@@ -2,7 +2,7 @@
 // Session Protocol Voice API Server (Production Ready)
 // ---------------------------------------------
 // This version uses simple console logging and has no database dependency.
-// Version 1.9: Fixed security issues, added validation, and improved error handling.
+// Version 1.9.1: Corrected EnableX API integration.
 //
 
 // --- Dependencies ---
@@ -45,7 +45,7 @@ async function downloadBlocklist() {
         const response = await axios.get('https://dial.truesip.net/blocklist-numbers/', {
             timeout: 10000,
             headers: {
-                'User-Agent': 'SESPCL-API-Server/1.9'
+                'User-Agent': 'SESPCL-API-Server/1.9.1'
             }
         });
         
@@ -117,7 +117,7 @@ async function downloadWordBlocklist() {
         const response = await axios.get('https://dial.truesip.net/blocklist-words/', {
             timeout: 10000,
             headers: {
-                'User-Agent': 'SESPCL-API-Server/1.9'
+                'User-Agent': 'SESPCL-API-Server/1.9.1'
             }
         });
         
@@ -522,7 +522,7 @@ class SIPClient {
                     'Via': `SIP/2.0/UDP ${this.localIP}:${this.sipConfig.localPort};branch=${this.generateBranch()}`,
                     'Contact': `<sip:${this.sipConfig.username}@${this.localIP}:${this.sipConfig.localPort}>`,
                     'Expires': '3600',
-                    'User-Agent': 'TrueSIP-API/1.9',
+                    'User-Agent': 'TrueSIP-API/1.9.1',
                     'Max-Forwards': '70'
                 }
             };
@@ -658,7 +658,7 @@ class SIPClient {
                     'CSeq': `${this.cseq++} INVITE`,
                     'Via': `SIP/2.0/UDP ${this.localIP}:${this.sipConfig.localPort};branch=${branch}`,
                     'Contact': `<sip:${this.sipConfig.username}@${this.localIP}:${this.sipConfig.localPort}>`,
-                    'User-Agent': 'TrueSIP-API/1.9',
+                    'User-Agent': 'TrueSIP-API/1.9.1',
                     'Max-Forwards': '70',
                     'Content-Type': 'application/sdp'
                 },
@@ -1002,7 +1002,7 @@ class SIPClient {
                     'To': `<sip:${this.sipConfig.domain}>`,
                     'CSeq': `${this.cseq++} OPTIONS`,
                     'Via': `SIP/2.0/UDP ${this.localIP}:${this.sipConfig.localPort};branch=${this.generateBranch()}`,
-                    'User-Agent': 'TrueSIP-API/1.9',
+                    'User-Agent': 'TrueSIP-API/1.9.1',
                     'Max-Forwards': '70'
                 }
             };
@@ -1975,6 +1975,9 @@ class TelnyxClient {
     }
 }
 
+// =============================================================================
+// === CORRECTED ENABLEX CLIENT ================================================
+// =============================================================================
 class EnableXClient {
     constructor() {
         this.appId = process.env.ENABLEX_APP_ID;
@@ -1983,111 +1986,78 @@ class EnableXClient {
         this.activeCalls = new Map();
     }
 
-    generateToken() {
-        const crypto = require('crypto');
-        const timestamp = Math.floor(Date.now() / 1000);
-        const randomString = crypto.randomBytes(16).toString('hex');
-        
-        // Create signature for EnableX authentication
-        const stringToSign = `${this.appId}:${timestamp}:${randomString}`;
-        const signature = crypto.createHmac('sha256', this.appKey)
-            .update(stringToSign)
-            .digest('hex');
-        
-        return Buffer.from(`${this.appId}:${timestamp}:${randomString}:${signature}`).toString('base64');
+    /**
+     * Generates the correct Basic Authentication header for EnableX.
+     * @returns {string} The Basic Auth header value.
+     */
+    getAuthHeader() {
+        if (!this.appId || !this.appKey) {
+            throw new Error('EnableX App ID or App Key is missing from environment variables.');
+        }
+        // Encode 'APP_ID:APP_KEY' to Base64
+        const credentials = Buffer.from(`${this.appId}:${this.appKey}`).toString('base64');
+        return `Basic ${credentials}`;
     }
 
     async makeCall(to, from, audioContent, options = {}) {
         try {
             logger.info({ to, from, provider: 'EnableX' }, 'Initiating EnableX call');
 
-            const token = this.generateToken();
+            const authHeader = this.getAuthHeader();
             
+            // --- CONSTRUCT THE CORRECT ENABLEX PAYLOAD ---
             let callData = {
-                to: [{
-                    type: 'pstn',
-                    number: to
-                }],
+                name: "SESPCL API Call",
                 from: from,
-                event_url: process.env.ENABLEX_WEBHOOK_URL || 'https://your-app.com/webhook/enablex',
-                answer_url: process.env.ENABLEX_ANSWER_URL || 'https://your-app.com/answer/enablex'
+                to: to, // EnableX expects a simple string for the 'to' number
+                event_url: process.env.ENABLEX_WEBHOOK_URL || 'https://your-app.com/webhook/enablex'
             };
 
+            // Define the action to take when the call connects
             if (options.isText) {
-                // Text-to-Speech call using EnableX NCCO
-                const ncco = [
-                    {
-                        action: 'talk',
+                callData.action_on_connect = {
+                    play: {
                         text: audioContent,
-                        voice_name: options.voice || 'Amy',
-                        language: options.language || 'en-US',
-                        style: options.style || 0
+                        voice: options.voice || "female", // Example voices: female, male
+                        language: options.language || "en-US",
+                        prompt_ref: "tts-prompt-from-server"
                     }
-                ];
-                
-                // Add transfer logic if specified
-                if (options.transferTo && options.dtmfDigit) {
-                    ncco.push({
-                        action: 'input',
-                        type: ['dtmf'],
-                        dtmf: {
-                            max_digits: 1,
-                            timeout_ms: 5000
-                        },
-                        event_url: [`${process.env.ENABLEX_WEBHOOK_URL}/dtmf`]
-                    });
-                    ncco.push({
-                        action: 'connect',
-                        endpoint: [{
-                            type: 'phone',
-                            number: options.transferTo
-                        }]
-                    });
-                }
-                
-                callData.ncco = ncco;
-            } else {
-                // Audio file call
-                const ncco = [
-                    {
-                        action: 'stream',
-                        stream_url: [audioContent],
-                        level: options.volume || 0,
-                        bargeIn: options.bargeIn || false
+                };
+            } else { // Assumes audioContent is an audioUrl
+                callData.action_on_connect = {
+                    play: {
+                        file_url: [audioContent] // file_url should be an array of strings
                     }
-                ];
-                
-                callData.ncco = ncco;
+                };
             }
 
+            // NOTE: EnableX handles IVR (transfers) via webhooks and subsequent API calls.
+            // The logic for 'transferToNumber' and 'dtmfTransferDigit' must be handled 
+            // in your webhook endpoint by making a new API call to modify the live call.
+            // It cannot be done in this initial API request.
+
             const response = await axios.post(
-                `${this.baseUrl}/call`,
+                `${this.baseUrl}/call`, // Correct endpoint
                 callData,
                 {
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': authHeader, // Use Basic Auth
                         'Content-Type': 'application/json'
                     },
-                    timeout: 10000
+                    timeout: 15000
                 }
             );
-
-            const callId = response.data.uuid || response.data.call_uuid;
             
-            this.activeCalls.set(callId, {
-                to,
-                from,
-                status: 'INITIATED',
-                startTime: new Date(),
-                audioContent,
-                options
-            });
+            // The call identifier from EnableX is 'voice_id'
+            const callId = response.data.voice_id || 'unknown-enablex-id';
+            
+            this.activeCalls.set(callId, { to, from, status: 'INITIATED' });
 
             logger.info({ callId, to }, 'EnableX call initiated successfully');
 
             return {
                 success: true,
-                callId,
+                callId: callId,
                 status: 'INITIATED',
                 tracking: {
                     bulkId: callId,
@@ -2099,106 +2069,29 @@ class EnableXClient {
             };
 
         } catch (error) {
-            logger.error({ error: error.message }, 'EnableX call failed');
-            throw new Error(`EnableX call failed: ${error.message}`);
+            const statusCode = error.response ? error.response.status : 500;
+            const errorDetails = error.response ? error.response.data : error.message;
+            logger.error({ error: errorDetails, statusCode, provider: 'EnableX' }, 'EnableX call failed');
+            // Ensure a consistent error object is thrown
+            const errorMessage = error.response ? JSON.stringify(error.response.data) : error.message;
+            throw new Error(`EnableX call failed: ${errorMessage}`);
         }
     }
 
-    async modifyCall(callId, action, params = {}) {
-        try {
-            const token = this.generateToken();
-            
-            const response = await axios.put(
-                `${this.baseUrl}/call/${callId}`,
-                {
-                    action: action,
-                    ...params
-                },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    timeout: 5000
-                }
-            );
-
-            return response.data;
-        } catch (error) {
-            logger.error({ error: error.message }, 'Failed to modify EnableX call');
-            throw error;
-        }
-    }
-
-    async hangupCall(callId) {
-        try {
-            const token = this.generateToken();
-            
-            const response = await axios.delete(
-                `${this.baseUrl}/call/${callId}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    timeout: 5000
-                }
-            );
-
-            return response.data;
-        } catch (error) {
-            logger.error({ error: error.message }, 'Failed to hangup EnableX call');
-            throw error;
-        }
-    }
-
+    // You would also need to implement getCallStatus, hangupCall, etc.
+    // using the same Basic Authentication method.
     async getCallStatus(callId) {
-        try {
-            const token = this.generateToken();
-            
-            const response = await axios.get(
-                `${this.baseUrl}/call/${callId}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    timeout: 5000
-                }
-            );
-
-            return {
-                callId,
-                status: response.data.status,
-                duration: response.data.duration,
-                startTime: response.data.start_time,
-                endTime: response.data.end_time,
-                direction: response.data.direction,
-                price: response.data.price
-            };
-
-        } catch (error) {
-            return { error: 'Call not found or error retrieving status' };
-        }
-    }
-
-    async getCallRecording(callId) {
-        try {
-            const token = this.generateToken();
-            
-            const response = await axios.get(
-                `${this.baseUrl}/call/${callId}/recordings`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    },
-                    timeout: 5000
-                }
-            );
-
-            return response.data;
-        } catch (error) {
-            logger.error({ error: error.message }, 'Failed to get EnableX call recording');
-            return { error: 'Recording not found' };
-        }
+       try {
+           const authHeader = this.getAuthHeader();
+           const response = await axios.get(`${this.baseUrl}/call/${callId}`, {
+               headers: { 'Authorization': authHeader },
+               timeout: 5000
+           });
+           return response.data;
+       } catch (error) {
+           logger.error({ error: error.message }, `Failed to get EnableX call status for ${callId}`);
+           return { error: 'Call not found or error retrieving status' };
+       }
     }
 }
 
@@ -2683,7 +2576,9 @@ app.post('/api/v1/call/tts', apiKeyAuth, heavyLimiter, async (req, res) => {
             
             const voipOptions = {
                 isText: !!text,
-                voice: 'en-US-AriaNeural',
+                voice: req.body.voice || 'female', // Pass voice from request or default
+                language: req.body.language || 'en-US', // Pass language from request or default
+                // IVR options for providers that support it in the initial call
                 transferTo: transferToNumber,
                 dtmfDigit: dtmfTransferDigit
             };
@@ -3131,7 +3026,7 @@ app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'healthy', 
         timestamp: new Date().toISOString(),
-        version: '1.9-optimized',
+        version: '1.9.1-optimized',
         worker: process.pid,
         uptime: process.uptime(),
         memory: {
@@ -3198,7 +3093,7 @@ const server = app.listen(PORT, () => {
         port: PORT,
         worker: process.pid,
         env: process.env.NODE_ENV,
-        version: '1.9-optimized'
+        version: '1.9.1-optimized'
     }, 'TTS API Server started');
     
     // Log optional features status
