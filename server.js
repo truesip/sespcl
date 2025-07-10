@@ -2061,7 +2061,7 @@ class EnableXClient {
             }
 
             const response = await axios.post(
-                `${this.baseUrl}/calls`,
+                `${this.baseUrl}/call`,
                 callData,
                 {
                     headers: {
@@ -2109,7 +2109,7 @@ class EnableXClient {
             const token = this.generateToken();
             
             const response = await axios.put(
-                `${this.baseUrl}/calls/${callId}`,
+                `${this.baseUrl}/call/${callId}`,
                 {
                     action: action,
                     ...params
@@ -2135,7 +2135,7 @@ class EnableXClient {
             const token = this.generateToken();
             
             const response = await axios.delete(
-                `${this.baseUrl}/calls/${callId}`,
+                `${this.baseUrl}/call/${callId}`,
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -2156,7 +2156,7 @@ class EnableXClient {
             const token = this.generateToken();
             
             const response = await axios.get(
-                `${this.baseUrl}/calls/${callId}`,
+                `${this.baseUrl}/call/${callId}`,
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -2185,7 +2185,7 @@ class EnableXClient {
             const token = this.generateToken();
             
             const response = await axios.get(
-                `${this.baseUrl}/calls/${callId}/recordings`,
+                `${this.baseUrl}/call/${callId}/recordings`,
                 {
                     headers: {
                         'Authorization': `Bearer ${token}`
