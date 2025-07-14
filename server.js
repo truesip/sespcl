@@ -2094,8 +2094,6 @@ class EnableXClient {
        }
     }
 }
-// Add these imports at the top of your file, alongside other 'require' statements
-const { ConnectClient, StartOutboundVoiceContactCommand } = require('@aws-sdk/client-connect');
 // ... (rest of your code)
 class AWSConnectClient {
     constructor() {
