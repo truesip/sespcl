@@ -2077,7 +2077,7 @@ class EnableXClient {
             throw new Error(`EnableX call failed: ${errorMessage}`);
         }
     }
-
+    
     // You would also need to implement getCallStatus, hangupCall, etc.
     // using the same Basic Authentication method.
     async getCallStatus(callId) {
