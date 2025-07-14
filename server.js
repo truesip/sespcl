@@ -2094,43 +2094,96 @@ class EnableXClient {
        }
     }
 }
-
+// Add these imports at the top of your file, alongside other 'require' statements
+const { ConnectClient, StartOutboundVoiceContactCommand } = require('@aws-sdk/client-connect');
+// ... (rest of your code)
 class AWSConnectClient {
     constructor() {
         this.accessKeyId = process.env.AWS_ACCESS_KEY_ID;
         this.secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
         this.region = process.env.AWS_REGION || 'us-east-1';
         this.instanceId = process.env.AWS_CONNECT_INSTANCE_ID;
-        this.activeCalls = new Map();
+        this.activeCalls = new Map(); // Keep this for local tracking if needed, but for full state, use a shared store (like Redis)
+
+        // Initialize the AWS Connect client
+        this.connectClient = new ConnectClient({
+            region: this.region,
+            credentials: {
+                accessKeyId: this.accessKeyId,
+                secretAccessKey: this.secretAccessKey,
+            },
+        });
     }
 
     async makeCall(to, from, audioContent, options = {}) {
         try {
             logger.info({ to, from, provider: 'AWS Connect' }, 'Initiating AWS Connect call');
 
-            // AWS Connect requires more complex setup
-            // This is a simplified implementation
-            const callId = uuidv4();
+            // --- IMPORTANT: AWS Connect requires a Contact Flow to be pre-configured. ---
+            // The audioContent (text or audioUrl) needs to be passed into the Contact Flow
+            // as Contact Attributes. The Contact Flow then uses these attributes to play
+            // the audio or text-to-speech.
+
+            // You MUST have an AWS Connect Contact Flow ID configured in your .env
+            const contactFlowId = process.env.AWS_CONNECT_CONTACT_FLOW_ID;
+            if (!contactFlowId) {
+                throw new Error('AWS_CONNECT_CONTACT_FLOW_ID environment variable is missing. It is required for AWS Connect calls.');
+            }
+
+            // Define custom attributes to pass audioContent to the Contact Flow
+            const attributes = {};
+            if (options.isText) {
+                attributes.ttsText = audioContent;
+                attributes.ttsVoice = options.voice || 'Joanna'; // Example: Joanna, Matthew, Salli, Ivy, Kimberly, Joey, etc.
+                attributes.languageCode = options.language || 'en-US';
+            } else if (audioContent) { // audioContent is an audioUrl
+                attributes.audioUrl = audioContent;
+            }
+
+            // If transfer logic is required, you'd pass it as attributes and handle in the Contact Flow
+            if (options.transferTo && options.dtmfDigit) {
+                attributes.transferToNumber = options.transferTo;
+                attributes.dtmfTransferDigit = options.dtmfDigit;
+            }
+
+            const params = {
+                ContactFlowId: contactFlowId,
+                DestinationPhoneNumber: to,
+                InstanceId: this.instanceId,
+                SourcePhoneNumber: from, // Optional, can be derived from queue or instance settings
+                Attributes: attributes, // Pass your content and options as attributes
+                // ClientToken: uuidv4(), // Optional: for idempotency, SDK will generate if not provided
+                // TrafficType: 'GENERAL', // Or 'CAMPAIGN' if using AMD
+                // AnswerMachineDetectionConfig: { ... } // Optional: if you need AMD
+            };
+
+            logger.debug({ params }, 'AWS Connect StartOutboundVoiceContact parameters');
+
+            const command = new StartOutboundVoiceContactCommand(params);
+            const response = await this.connectClient.send(command);
+
+            const callId = response.ContactId; // This is the actual Contact ID from AWS Connect
             
-            // Store call information
+            // Store call information for local tracking (consider distributed cache for production)
             this.activeCalls.set(callId, {
                 to,
                 from,
-                status: 'INITIATED',
+                status: 'INITIATED', // AWS Connect call status is handled asynchronously via CTRs and contact events
                 startTime: new Date(),
                 audioContent,
-                options
+                options,
+                // You might also store the ContactArn if useful
             });
 
-            // Note: AWS Connect integration would require AWS SDK
-            // This is a placeholder implementation
-            
+            logger.info({ callId, to }, 'AWS Connect call initiated successfully');
+
             return {
                 success: true,
-                callId,
+                callId: callId,
                 status: 'INITIATED',
+                provider: 'AWS Connect',
                 tracking: {
-                    bulkId: callId,
+                    contactId: callId, // Using AWS's ContactId as messageId/bulkId
                     messageId: callId,
                     to,
                     from,
@@ -2139,25 +2192,39 @@ class AWSConnectClient {
             };
 
         } catch (error) {
-            logger.error({ error: error.message }, 'AWS Connect call failed');
-            throw new Error(`AWS Connect call failed: ${error.message}`);
+            const errorMessage = error.message || 'Unknown AWS Connect error';
+            logger.error({ error: errorMessage, stack: error.stack, to, from }, 'AWS Connect call failed');
+            throw new Error(`AWS Connect call failed: ${errorMessage}`);
         }
     }
 
+    // You'll also need a more robust getCallStatus that checks AWS Connect
+    // For a real-time status, you'd typically listen to Contact Events (Kinesis)
+    // or query the AWS Connect API for Contact details.
+    // The current getCallStatus only checks the local in-memory map.
     async getCallStatus(callId) {
+        // This method should ideally query AWS Connect's GetContactAttributes or list events
+        // For simplicity, we'll keep the local tracking here, but acknowledge its limitation.
         const call = this.activeCalls.get(callId);
-        if (!call) {
-            return { error: 'Call not found' };
+        if (call) {
+            return {
+                callId,
+                status: call.status, // This is the local status, not real-time from AWS
+                to: call.to,
+                from: call.from,
+                startTime: call.startTime,
+                duration: Date.now() - call.startTime.getTime()
+            };
         }
-        
-        return {
-            callId,
-            status: call.status,
-            to: call.to,
-            from: call.from,
-            startTime: call.startTime,
-            duration: Date.now() - call.startTime.getTime()
-        };
+
+        // Fallback to directly querying AWS Connect for status.
+        // This is more complex as AWS Connect doesn't have a simple "GetCallStatus" API
+        // for outbound calls like Twilio or Vonage. You'd typically use
+        // DescribeContact API (which returns contact details, including initiation time and
+        // connection status, but not "ringing" or "in-progress" easily for outbound calls).
+        // For a true status, you'd process Contact Trace Records (CTRs) or real-time events.
+        logger.warn({ callId }, 'Attempting to get AWS Connect status for unknown callId. Requires more complex AWS integration.');
+        return { error: 'Call not found in local cache. Real-time AWS Connect status requires advanced integration.' };
     }
 }
 
